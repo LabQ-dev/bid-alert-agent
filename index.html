@@ -85,7 +85,7 @@
     <div class="field">
       <label class="title">사업명 필터링 키워드</label>
       <div class="hint">검색하고자 하는 사업의 키워드를 쉼표(,)로 구분해 입력해주세요. 비워두면 전체 공고를 받습니다.</div>
-      <input type="text" name="keywords" placeholder="예: 인공지능, AI, 생성형">
+      <input type="text" name="keywords" placeholder="인공지능, AI, 생성형">
     </div>
 
     <div class="field">
@@ -102,35 +102,36 @@
 
     <div class="field">
       <label class="title">사업예산 규모 <span class="req">*</span></label>
-      <div class="hint">선택한 규모 미만의 공고만 받습니다.</div>
+      <div class="hint">선택한 규모에 해당하는 공고만 받습니다.</div>
       <div class="checks">
         <label><input type="radio" name="budget" value="5억 미만">5억 미만</label>
         <label><input type="radio" name="budget" value="20억 미만">20억 미만</label>
         <label><input type="radio" name="budget" value="40억 미만">40억 미만</label>
+        <label><input type="radio" name="budget" value="40억 이상">40억 이상</label>
         <label><input type="radio" name="budget" value="모두" checked>모두</label>
       </div>
     </div>
 
     <div class="field">
       <label class="title">이름 <span class="req">*</span></label>
-      <input type="text" name="name" required placeholder="예: 김랩큐">
+      <input type="text" name="name" required placeholder="김랩큐">
     </div>
 
     <div class="field">
       <label class="title">소속 기관 또는 회사명 <span class="req">*</span></label>
-      <input type="text" name="organization" required placeholder="예: LabQ, 개인">
+      <input type="text" name="organization" required placeholder="LabQ, 개인">
     </div>
 
     <div class="field">
       <label class="title">연락 가능한 전화번호 <span class="req">*</span></label>
       <div class="hint">숫자만 입력해주세요.</div>
-      <input type="tel" name="phone" required inputmode="numeric" pattern="[0-9]{9,11}" placeholder="예: 01012345678">
+      <input type="tel" name="phone" required inputmode="numeric" pattern="[0-9]{9,11}" placeholder="01012345678">
     </div>
 
     <div class="field">
       <label class="title">발송을 요청할 이메일 <span class="req">*</span></label>
       <div class="hint">여러 개인 경우 쉼표(,)로 구분해주세요.</div>
-      <input type="text" name="emails" required placeholder="예: khs@labq.kr, labq@labq.kr">
+      <input type="text" name="emails" required placeholder="khs@labq.kr, labq@labq.kr">
     </div>
 
     <div class="field">

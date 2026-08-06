@@ -252,11 +252,13 @@ function dailySend() {
   }
 }
 
-// 예산 규모 문자열 → 상한값(원). '모두'거나 알 수 없으면 null(필터 없음)
-function budgetLimit(budget) {
-  if (budget === '5억 미만') return 500000000;
-  if (budget === '20억 미만') return 2000000000;
-  if (budget === '40억 미만') return 4000000000;
+// 예산 규모 문자열 → {min, max}(원). '모두'거나 알 수 없으면 null(필터 없음)
+// max는 미포함(미만), min은 포함(이상)
+function budgetRange(budget) {
+  if (budget === '5억 미만') return { min: null, max: 500000000 };
+  if (budget === '20억 미만') return { min: null, max: 2000000000 };
+  if (budget === '40억 미만') return { min: null, max: 4000000000 };
+  if (budget === '40억 이상') return { min: 4000000000, max: null };
   return null;
 }
 
@@ -274,7 +276,7 @@ function parseBudgetAmount(raw) {
 // 공고 메일 발송 (변경 없음)
 // ─────────────────────────────────────────────
 function sendMail(keywords, types, typeDisplay, emails, budget) {
-  const limit = budgetLimit(budget);
+  const range = budgetRange(budget);
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -320,7 +322,9 @@ function sendMail(keywords, types, typeDisplay, emails, budget) {
     const typeMatch = types.some(t => 구분.includes(t) || 기관명.includes(t));
     // 예산 필터: 배정예산을 파싱할 수 없는 공고는 제외하지 않고 포함
     const amount = parseBudgetAmount(row[5]);
-    const budgetMatch = limit === null || amount === null || amount < limit;
+    const budgetMatch = range === null || amount === null
+      || ((range.max === null || amount < range.max)
+        && (range.min === null || amount >= range.min));
     if (keywordMatch && typeMatch && budgetMatch) {
       const dateStr = row[3] ? String(row[3]) : '';
       const deadlineMatch = dateStr.match(/~\s*(\d{4}-\d{2}-\d{2})/);
