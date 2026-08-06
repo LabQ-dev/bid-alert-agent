@@ -312,13 +312,17 @@ function sendMail(keywords, types, typeDisplay, emails, budget) {
   const richText = sheet.getDataRange().getRichTextValues();
   const totalCount = data.length - 1;
 
+  // 키워드는 대소문자 구분 없이 매칭 (예: 'ai' 로도 'AI' 공고를 찾음)
+  const lowerKeywords = keywords.map(k => String(k).toLowerCase());
+
   const filteredRows = [];
   data.slice(1).forEach((row, i) => {
     const 사업명 = row[2] || '';
     const 구분   = row[1] || '';
     const 기관명 = row[4] || '';
+    const 사업명Lower = String(사업명).toLowerCase();
     const keywordMatch = keywords.length === 0 || keywords[0] === ''
-      || keywords.some(k => 사업명.includes(k));
+      || lowerKeywords.some(k => k !== '' && 사업명Lower.includes(k));
     const typeMatch = types.some(t => 구분.includes(t) || 기관명.includes(t));
     // 예산 필터: 배정예산을 파싱할 수 없는 공고는 제외하지 않고 포함
     const amount = parseBudgetAmount(row[5]);
