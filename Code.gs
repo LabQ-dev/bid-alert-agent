@@ -220,6 +220,21 @@ function dailySend() {
     const status = row[10];
     if (status !== '활성') continue;
 
+    // ✅ 같은 이메일로 재신청한 경우: 가장 최근(아래쪽) 활성 행만 사용
+    //    → 최종 검색어 기준으로만 발송되도록 이전 행은 건너뛰고 비활성 처리
+    const myEmails = String(row[8] || '').split(',').map(m => m.trim().toLowerCase()).filter(Boolean);
+    let superseded = false;
+    for (let j = i + 1; j < data.length; j++) {
+      if (data[j][10] !== '활성') continue;
+      const laterEmails = String(data[j][8] || '').split(',').map(m => m.trim().toLowerCase());
+      if (myEmails.some(m => laterEmails.includes(m))) { superseded = true; break; }
+    }
+    if (superseded) {
+      sheet.getRange(i + 1, 11).setValue('비활성');
+      Logger.log(`재신청 감지 → 이전 행 비활성 처리: ${i + 1}행 (${row[8]})`);
+      continue;
+    }
+
     const expireDateStr = row[12];
     if (expireDateStr) {
       const parts = String(expireDateStr).split('.');
@@ -278,6 +293,8 @@ function parseBudgetAmount(raw) {
 function sendMail(keywords, types, typeDisplay, emails, budget) {
   const range = budgetRange(budget);
   const today = new Date();
+  const todayMid = new Date(today);
+  todayMid.setHours(0, 0, 0, 0);
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, '0');
   const dd = String(today.getDate()).padStart(2, '0');
@@ -333,6 +350,8 @@ function sendMail(keywords, types, typeDisplay, emails, budget) {
       const dateStr = row[3] ? String(row[3]) : '';
       const deadlineMatch = dateStr.match(/~\s*(\d{4}-\d{2}-\d{2})/);
       const deadline = deadlineMatch ? new Date(deadlineMatch[1]) : new Date('9999-12-31');
+      // ✅ 발송일 기준 제안마감일이 이미 지난 공고는 제외 (마감일 파싱 불가 시 포함)
+      if (deadline < todayMid) return;
       filteredRows.push({ row, richIndex: i + 1, deadline });
     }
   });
