@@ -304,16 +304,19 @@ function sendMail(keywords, types, typeDisplay, emails, budget) {
   yesterday.setDate(today.getDate() - 1);
   const yesterdayStr = `${yesterday.getFullYear()}.${String(yesterday.getMonth()+1).padStart(2,'0')}.${String(yesterday.getDate()).padStart(2,'0')}`;
 
+  // ✅ 최신 발주목록 선택: 수정 날짜가 아니라 파일명의 날짜(YYYYMMDD_발주목록) 기준
+  //    (옛 파일을 누가 열어서 수정해도 최신 데이터가 잘못 밀리지 않도록)
   const folder = DriveApp.getFolderById(FOLDER_ID);
   const files = folder.getFiles();
   let latestFile = null;
-  let latestDate = new Date(0);
+  let latestKey = '';
 
   while (files.hasNext()) {
     const file = files.next();
-    const modified = file.getLastUpdated();
-    if (modified > latestDate) {
-      latestDate = modified;
+    const m = file.getName().match(/^(\d{8})_발주목록/);
+    if (!m) continue;
+    if (m[1] > latestKey) {
+      latestKey = m[1];
       latestFile = file;
     }
   }
