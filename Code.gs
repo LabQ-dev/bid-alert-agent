@@ -205,7 +205,7 @@ function onFormSubmit(e) {
 }
 
 // ─────────────────────────────────────────────
-// 매일 발송 (변경 없음)
+// 매일 발송 (✅ 구독자별 try-catch 적용: 한 명 실패해도 나머지 계속 발송)
 // ─────────────────────────────────────────────
 function dailySend() {
   const ss = SpreadsheetApp.openById(RESPONSE_SHEET_ID);
@@ -215,55 +215,75 @@ function dailySend() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const failedList = [];   // ✅ 실패한 구독자 기록
+
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const status = row[10];
     if (status !== '활성') continue;
 
-    // ✅ 같은 이메일로 재신청한 경우: 가장 최근(아래쪽) 활성 행만 사용
-    //    → 최종 검색어 기준으로만 발송되도록 이전 행은 건너뛰고 비활성 처리
-    const myEmails = String(row[8] || '').split(',').map(m => m.trim().toLowerCase()).filter(Boolean);
-    let superseded = false;
-    for (let j = i + 1; j < data.length; j++) {
-      if (data[j][10] !== '활성') continue;
-      const laterEmails = String(data[j][8] || '').split(',').map(m => m.trim().toLowerCase());
-      if (myEmails.some(m => laterEmails.includes(m))) { superseded = true; break; }
-    }
-    if (superseded) {
-      sheet.getRange(i + 1, 11).setValue('비활성');
-      Logger.log(`재신청 감지 → 이전 행 비활성 처리: ${i + 1}행 (${row[8]})`);
-      continue;
-    }
-
-    const expireDateStr = row[12];
-    if (expireDateStr) {
-      const parts = String(expireDateStr).split('.');
-      const expireDate = new Date(parts[0], parts[1] - 1, parts[2]);
-      expireDate.setHours(0, 0, 0, 0);
-      if (today > expireDate) {
+    // ✅ 구독자 한 명 처리 중 오류가 나도 전체가 중단되지 않도록 try-catch로 감쌈
+    try {
+      // ✅ 같은 이메일로 재신청한 경우: 가장 최근(아래쪽) 활성 행만 사용
+      //    → 최종 검색어 기준으로만 발송되도록 이전 행은 건너뛰고 비활성 처리
+      const myEmails = String(row[8] || '').split(',').map(m => m.trim().toLowerCase()).filter(Boolean);
+      let superseded = false;
+      for (let j = i + 1; j < data.length; j++) {
+        if (data[j][10] !== '활성') continue;
+        const laterEmails = String(data[j][8] || '').split(',').map(m => m.trim().toLowerCase());
+        if (myEmails.some(m => laterEmails.includes(m))) { superseded = true; break; }
+      }
+      if (superseded) {
         sheet.getRange(i + 1, 11).setValue('비활성');
-        Logger.log(`만료 처리: ${row[8]}`);
+        Logger.log(`재신청 감지 → 이전 행 비활성 처리: ${i + 1}행 (${row[8]})`);
         continue;
       }
+
+      const expireDateStr = row[12];
+      if (expireDateStr) {
+        const parts = String(expireDateStr).split('.');
+        const expireDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        expireDate.setHours(0, 0, 0, 0);
+        if (today > expireDate) {
+          sheet.getRange(i + 1, 11).setValue('비활성');
+          Logger.log(`만료 처리: ${row[8]}`);
+          continue;
+        }
+      }
+
+      const keywords = row[1] ? row[1].split(',').map(k => k.trim()) : [];
+      const orgTypesRaw = row[2];
+      const orgTypes = Array.isArray(orgTypesRaw)
+        ? orgTypesRaw
+        : orgTypesRaw.split(',').map(t => t.trim());
+      const naraSelected = row[3];
+      const naraTypesRaw = naraSelected === '예' && row[4] ? row[4] : '';
+      const naraTypes = naraTypesRaw
+        ? (Array.isArray(naraTypesRaw) ? naraTypesRaw : naraTypesRaw.split(',').map(t => t.trim()))
+        : [];
+      const types = [...orgTypes, ...naraTypes];
+      const emails = row[8].split(',').map(m => m.trim());
+      const budget = row[13] || '모두';   // N열: 예전 신청 건은 값이 없으므로 '모두' 처리
+
+      const typeDisplay = buildTypeDisplay(orgTypes, naraTypes);
+
+      sendMail(keywords, types, typeDisplay, emails, budget);
+
+      // ✅ 발송 간격: 연속 호출 부하를 줄여 INTERNAL 오류 빈도 완화
+      Utilities.sleep(1000);
+
+    } catch (e) {
+      // ✅ 이 구독자만 건너뛰고 다음 구독자 계속 진행
+      failedList.push(`${i + 1}행 (${row[8]})`);
+      Logger.log(`발송 실패 (건너뜀): ${i + 1}행 (${row[8]}) / 오류: ${e.message}`);
     }
+  }
 
-    const keywords = row[1] ? row[1].split(',').map(k => k.trim()) : [];
-    const orgTypesRaw = row[2];
-    const orgTypes = Array.isArray(orgTypesRaw)
-      ? orgTypesRaw
-      : orgTypesRaw.split(',').map(t => t.trim());
-    const naraSelected = row[3];
-    const naraTypesRaw = naraSelected === '예' && row[4] ? row[4] : '';
-    const naraTypes = naraTypesRaw
-      ? (Array.isArray(naraTypesRaw) ? naraTypesRaw : naraTypesRaw.split(',').map(t => t.trim()))
-      : [];
-    const types = [...orgTypes, ...naraTypes];
-    const emails = row[8].split(',').map(m => m.trim());
-    const budget = row[13] || '모두';   // N열: 예전 신청 건은 값이 없으므로 '모두' 처리
-
-    const typeDisplay = buildTypeDisplay(orgTypes, naraTypes);
-
-    sendMail(keywords, types, typeDisplay, emails, budget);
+  // ✅ 실패 건 요약 로그 (실행 기록에서 한눈에 확인용)
+  if (failedList.length > 0) {
+    Logger.log(`⚠️ 발송 실패 총 ${failedList.length}건: ${failedList.join(' / ')}`);
+  } else {
+    Logger.log('✅ 전체 구독자 발송 정상 완료');
   }
 }
 
